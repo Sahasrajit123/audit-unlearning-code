@@ -1,0 +1,40 @@
+# Output perturbation unlearning: logistic regression d=2, single partition.
+# 1000 total points, 100 forget, 900 retain. Construction so full vs retain differ significantly.
+config_id: output_perturbation_logistic
+random_state: 42
+loss: logistic
+
+n_partition: 1
+
+data:
+  n_total: 1000
+  n_forget: 400
+  n_retain: 600   # n_total - n_forget
+  d: 2
+  theta_norm: 1.0
+  forget_norm: 6.0   # scale for opposite direction (θ_f = -θ* * forget_norm)
+  forget_direction: opposite   # opposite = θ_f = -θ* (full model pulled away from retain)
+  link_function: f1
+  eta: 0.8
+  zeta: 0.9
+  feature_distribution: gaussian
+  n_val: 200
+  n_test: 400
+
+training:
+  per_sample_reg: 1e-4
+  max_iter: 1000
+
+# Output perturbation: x_0 = Pi_{C_0}(x̂) + ξ_0, ξ_0 ~ N(0, (8 C_0^2 ln(1.25/δ))/ε^2 I_d)
+output_perturbation:
+  C_0: 1.0   # clipping radius (sensitivity bound)
+
+sample_config:
+  n_samples_per_dist: 500
+  n_test: 500
+  confidence: 0.95
+
+privacy:
+  delta: 0.01
+
+epsilon_values: [0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0]

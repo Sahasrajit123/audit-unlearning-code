@@ -1,0 +1,59 @@
+# Retain-only finetuning unlearning.
+# Uses src/training/unlearn_retain_finetune.py and post_unlearning optimizer settings.
+
+dataset:
+  name: "cifar100"
+  input_shape: [32, 32, 3]
+  root: "./data/cifar100/extracted"
+  batch_size: 128
+  num_workers: 0
+  val_split: 0.1
+  forget_split: 0.3
+  seed: 1
+
+model:
+  name: "tiny_net_cifar100"
+  n_classes: 100
+
+training:
+  epochs: 400
+  optim: "SGD"
+  max_lr: 0.06
+  momentum: 0
+  weight_decay: 0.0005
+  lr_schedule: "onecycle"
+  pretrained: false
+
+unlearning:
+  algorithm: "retain_finetune"
+  epochs: 50
+  max_lr: 0.001        # fallback if post_unlearning.max_lr is absent
+  weight_decay: 0.0    # fallback if post_unlearning.weight_decay is absent
+  init_model_clip: 30  # required by Trainer __init__
+  init_sigma: 0
+  delta: 0.00001
+  save_only_cleanup_retained: true
+  checkpoint_keep_first_n_epochs: 5
+  checkpoint_keep_last_n_epochs: 5
+  checkpoint_keep_every_n_epochs: 10
+  checkpoint_keep_first_n_steps: 20
+  checkpoint_keep_multiple_phases: [[0, 10], [1000, 100], [2000, 0]]
+  keep_epoch_zero_checkpoint: false
+  keep_step_zero_checkpoint: false
+
+post_unlearning:
+  optim: "SGD"
+  momentum: 0
+  weight_decay: 0.0005
+  lr_schedule: "onecycle"
+  max_lr: 0.1
+  post_unlearn_clip: False
+
+wandb:
+  project: "machine-unlearning"
+  entity: "sahasras-stanford-university"
+  log_dir: "./wandb_logs"
+
+secure_rng: False
+save_every: 1
+global_seed: 1

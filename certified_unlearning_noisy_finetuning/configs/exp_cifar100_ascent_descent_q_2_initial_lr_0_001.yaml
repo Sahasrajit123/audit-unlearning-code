@@ -1,0 +1,69 @@
+# Ascent–descent unlearning with initial forget-only phase and custom LR
+# This config adds support for an initial forget-only ascent phase with a different LR,
+# then switches to standard ascent-descent schedule.
+# See src/training/unlearn_ascent_descent.py
+
+dataset:
+  name: "cifar100"
+  input_shape: [32, 32, 3]
+  root: "./data"
+  batch_size: 128
+  num_workers: 0
+  val_split: 0.1
+  forget_split: 0.3
+  seed: 1
+
+model:
+  name: "tiny_net_cifar100"
+  n_classes: 100
+
+training:
+  epochs: 400
+  optim: "SGD"
+  max_lr: 0.06
+  momentum: 0
+  weight_decay: 0.0005
+  lr_schedule: "onecycle"
+  checkpoint_save_every_n_epochs: 50
+  checkpoint_save_first_n_epochs: 5
+  checkpoint_save_last_n_epochs: 5
+  pretrained: false
+
+unlearning:
+  algorithm: "ascent_descent"
+  epochs: 50
+  max_lr: 0.001
+  weight_decay: 0.0005
+  init_model_clip: 30
+  init_sigma: 0
+  delta: 0.00001
+  save_only_cleanup_retained: true
+  checkpoint_keep_first_n_epochs: 5
+  checkpoint_keep_last_n_epochs: 5
+  checkpoint_keep_every_n_epochs: 10
+  checkpoint_keep_first_n_steps: 20
+  checkpoint_keep_multiple_phases: [0,0] ###[[0, 10], [1000, 100], [2000, 0]]
+  keep_epoch_zero_checkpoint: false
+  keep_step_zero_checkpoint: false
+
+post_unlearning:
+  optim: "SGD"
+  momentum: 0
+  weight_decay: 0.0005
+  lr_schedule: "onecycle"
+  max_lr: 0.1
+  post_unlearn_clip: False
+  ascent_descent:
+    q: 2  # Forget-only ascent phase (no schedule, uses fixed LR below)
+    lambda_coef: 0.75
+    forget_epochs: 10
+    initial_forget_lr: 0.001  # Fixed LR for forget phase (no schedule)
+
+wandb:
+  project: "machine-unlearning"
+  entity: "sahasras-stanford-university"
+  log_dir: "./wandb_logs"
+
+secure_rng: False
+save_every: 1
+global_seed: 1

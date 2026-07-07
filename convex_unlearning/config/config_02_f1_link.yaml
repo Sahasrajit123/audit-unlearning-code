@@ -1,0 +1,29 @@
+config_id: "02_f1_link"
+random_state: 42
+loss: logistic
+
+data:
+  n_retain: 1000
+  n_forget: 50
+  d: 1
+  theta_norm: 1.0
+  forget_norm: 10.0
+  link_function: f1
+  eta: 0.8
+  zeta: 0.9
+  feature_distribution: gaussian
+  n_val: 500
+  n_test: 1000
+
+training:
+  per_sample_reg: 0.15
+  max_iter: 1000
+
+sample_config:
+  n_samples_per_dist: 1000
+  n_test: 500
+
+privacy:
+  delta: 0.01
+
+epsilon_values: [0.1, 0.5, 1.0, 2.0, 5.0, 10.0,20, 50, 100, 200, 400, 600]

@@ -1,0 +1,49 @@
+{
+  "experiment": {
+    "run_folder": "runs_hessian_unlearning_fs400",
+    "num_runs": 55,
+    "forget_prob": 0.5,
+    "strategy": "hessian_unlearning",
+    "dataset": "data_splits_speakers300_fs400"
+  },
+
+  "data": {
+    "path": "shakespeare.txt",
+    "train_frac": 0.8,
+    "seq_len": 80
+  },
+
+  "model": {
+    "embed_dim": 8,
+    "hidden_size": 256,
+    "num_layers": 2
+  },
+
+  "training": {
+    "epochs": 15,
+    "batch_size": 256,
+    "lr": 0.1,
+    "clip": 1.0,
+    "optimizer": "sgd",
+    "seed": 42,
+    "weight_decay": 0.0
+  },
+
+  "unlearning": {
+    "strategy": "hessian_unlearning",
+    "hessian_unlearning": {
+      "s1": 5,
+      "s2": 700,
+      "scale": 5000.0,
+      "std": 0.001,
+      "gamma": 0.05,
+      "weight_decay": 0.0005
+    }
+  },
+
+  "generation": {
+    "seed_text": "To be, or not to be",
+    "n_chars": 300,
+    "temperature": 0.8
+  }
+}

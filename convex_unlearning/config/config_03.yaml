@@ -1,0 +1,29 @@
+config_id: "03"
+random_state: 42
+loss: mse
+
+data:
+  n_retain: 4050
+  n_forget: 450
+  d: 2
+  theta_norm: 0.1
+  forget_norm: 10.0
+  link_function: tanh
+  eta: 1.0
+  zeta: 0.9
+  feature_distribution: gaussian
+  n_val: 500
+  n_test: 1000
+
+training:
+  per_sample_reg: 1.0e-2
+  max_iter: 1000
+
+sample_config:
+  n_samples_per_dist: 1000
+  n_test: 500
+
+privacy:
+  delta: 0.01
+
+epsilon_values: [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]

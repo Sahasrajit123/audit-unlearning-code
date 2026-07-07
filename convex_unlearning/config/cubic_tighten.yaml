@@ -1,0 +1,35 @@
+# "Tighten-it" recipe: push instance to worst-case region to tighten the bound.
+# Retain: 1000 × (0). Forget: partition 0 → 50 × (-R·e1), partition 1 → 50 × (-R·e2).
+# B ≈ Rm/(λn); MB ≤ λ/2 for strong convexity. B = R*m/(λ*n) ≈ 9.09; M=0.005.
+config_id: cubic_tighten
+random_state: 42
+loss: cubic
+
+n_partition: 2
+
+cubic:
+  M: 0.005       # MB ≤ λ/2
+  B: 9.09        # B ≈ Rm/(λn)
+  data_R: 20     # forget partitions at -R·e1 and -R·e2
+
+data:
+  n_retain: 1000
+  n_forget_per_partition: 50   # 50 per partition, 100 total
+  d: 6
+  n_val: 200
+  n_test: 400
+
+training:
+  per_sample_reg: 0.1
+  max_iter: 1000
+
+sample_config:
+  n_samples_per_dist: 500
+  n_test: 20000
+  confidence: 0.95
+  ci_delta: 0.05
+
+privacy:
+  delta: 0.01
+
+epsilon_values: [0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0]

@@ -1,0 +1,33 @@
+# Single-partition cubic: retain-only vs retain∪forget → unlearn.
+# All forget points along e1 (n_partition=1 → generate_strategic_data_multipartition with n_partitions=1).
+config_id: cubic_tighten_single_partition_best
+random_state: 42
+loss: cubic
+
+n_partition: 1
+
+cubic:
+  M: 0.001
+  B: 2.5
+  data_R: 10.0
+
+data:
+  n_retain: 1000
+  n_forget_per_partition: 50   # equivalent to K/2 * n_forget_per_partition = 3*20 in multipartition
+  d: 1
+  n_val: 200
+  n_test: 400
+
+training:
+  per_sample_reg: 0.2
+  max_iter: 1000
+
+sample_config:
+  n_samples_per_dist: 500
+  n_test: 100000
+  ci_delta: 0.05
+
+privacy:
+  delta: 0.01
+
+epsilon_values: [0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 400, 600, 800]

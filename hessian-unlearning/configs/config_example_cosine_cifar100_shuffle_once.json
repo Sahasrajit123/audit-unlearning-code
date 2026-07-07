@@ -1,0 +1,19 @@
+{
+  "optimizer": "sgd",
+  "momentum": 0.0,
+  "scheduler-type": "cosine",
+  "scheduler-t-max": 400,
+  "scheduler-eta-min": 0.0001,
+  "lr": 0.1,
+  "batch-size": 128,
+  "epochs": 400,
+  "weight-decay": 0.0005,
+  "model": "tinynetcifar100",
+  "dataset": "cifar100",
+  "num-classes": 100,
+  "seed": 42,
+  "forget-prob": 0.5,
+  "num-runs": 60,
+  "shuffle-train-samples": true,
+  "shuffle-train-batches-each-epoch": false
+}

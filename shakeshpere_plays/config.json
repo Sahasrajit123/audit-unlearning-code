@@ -1,0 +1,22 @@
+{
+  "model": {
+    "embed_dim": 8,
+    "hidden_size": 256,
+    "num_layers": 2
+  },
+
+  "training": {
+    "epochs": 10,
+    "batch_size": 256,
+    "lr": 0.1,
+    "clip": 1.0,
+    "optimizer": "sgd",
+    "seed": 42
+  },
+
+  "generation": {
+    "seed_text": "To be, or not to be",
+    "n_chars": 300,
+    "temperature": 0.8
+  }
+}

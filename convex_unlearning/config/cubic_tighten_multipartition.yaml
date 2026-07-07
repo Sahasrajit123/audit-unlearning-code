@@ -1,0 +1,33 @@
+# Multi-partition cubic: K partitions at -R·e_1 .. -R·e_K; forget set = exactly K/2 of them (C(K,K/2) configs).
+# Bound: compute_avg_v_test_epsilon_lb(m=K, r=K, ...).
+config_id: cubic_tighten_multipartition
+random_state: 42
+loss: cubic
+
+n_partition: 6    # K (must be even; forget set = K/2 partitions)
+
+cubic:
+  M: 0.005
+  B: 9.09
+  data_R: 20      # forget directions at -R·e_i
+
+data:
+  n_retain: 1000
+  n_forget_per_partition: 50   # total forget per config = (K/2) * n_forget_per_partition = 60
+  d: 8            # must be >= n_partition
+  n_val: 200
+  n_test: 400
+
+training:
+  per_sample_reg: 0.1
+  max_iter: 1000
+
+sample_config:
+  n_samples_per_dist: 500
+  n_test: 100000
+  ci_delta: 0.05
+
+privacy:
+  delta: 0.01
+
+epsilon_values: [0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0]

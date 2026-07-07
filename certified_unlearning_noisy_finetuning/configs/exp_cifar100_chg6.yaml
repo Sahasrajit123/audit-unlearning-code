@@ -1,0 +1,62 @@
+dataset:
+    name: cifar100
+    input_shape:
+    - 32
+    - 32
+    - 3
+    root: ./data/cifar100/extracted
+    batch_size: 128
+    num_workers: 0
+    val_split: 0.1
+    forget_split: 0.3
+    seed: 1
+model:
+  name: tiny_net_cifar100
+  n_classes: 100
+training:
+  epochs: 400
+  optim: SGD
+  max_lr: 0.06
+  momentum: 0
+  weight_decay: 0.0005
+  lr_schedule: onecycle
+  checkpoint_save_every_n_epochs: 50
+  checkpoint_save_first_n_epochs: 5
+  checkpoint_save_last_n_epochs: 5
+  checkpoint_keep_multiple_phases: [[0, 20], [600, 500], [2000, 0]]
+  pretrained: false
+unlearning:
+  epochs: 50
+  optim: SGD
+  momentum: 0
+  weight_decay: 0
+  lr_schedule: constant
+  noise_schedule: constant
+  max_lr: 0.001
+  init_model_clip: 30
+  init_model_clip_type: clip
+  init_sigma: 0
+  algorithm: contractive_coefficients
+  delta: 0.00001
+  contractive_coefficients:
+    epsilon_target: 100000
+    sigma: 0.001
+    model_clip: 0.225
+    grad_clip: false
+    noise_addition_after_projection: true
+    noise_addition_before_projection: false
+post_unlearning:
+  optim: SGD
+  momentum: 0
+  weight_decay: 0.0005
+  lr_schedule: onecycle
+  max_lr: 0.1
+  post_unlearn_clip: false
+wandb:
+  project: machine-unlearning
+  entity: "sahasras-stanford-university"
+  log_dir: ./wandb_logs
+secure_rng: false
+save_every: 1
+global_seed: 1
+  

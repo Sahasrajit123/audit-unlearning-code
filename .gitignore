@@ -1,0 +1,41 @@
+# --- Dataset / model artifacts ---
+*.pkl
+*.pickle
+*.npy
+*.npz
+*.csv
+*.h5
+*.hdf5
+*.pt
+*.pth
+*.ckpt
+*.bin
+*.parquet
+*.safetensors
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.gz
+
+# Raw/generated data directories
+/hessian-unlearning/data/
+data_split*/
+data_splits*/
+
+# Training run outputs
+runs_*/
+results_*/
+checkpoints/
+wandb/
+
+# --- Python / dev ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+.DS_Store
+*.log

@@ -1,0 +1,34 @@
+# Cubic loss (e1/e2): f(w,z) = (λ/2)||w||² + (M/6)(w1³+w2³) - <z,w>. λ = training.per_sample_reg only.
+# B: ||w|| ≤ B; M: Hessian-Lipschitz; need MB ≤ λ/2 for strong convexity.
+config_id: cubic
+random_state: 42
+loss: cubic
+
+n_partition: 2
+
+cubic:
+  M: 1.0         # Hessian-Lipschitz; MB ≤ λ/2
+  B: 0.05        # parameter bound
+  data_R: 1      # forget partitions at -1·e1 and -1·e2
+
+data:
+  n_retain: 500
+  n_forget_per_partition: 50   # 50 per partition (e1 and e2), 100 total
+  d: 5           # must be >= n_partition
+  n_val: 200
+  n_test: 400
+
+training:
+  per_sample_reg: 0.1
+  max_iter: 1000
+
+sample_config:
+  n_samples_per_dist: 500
+  n_test: 200
+  confidence: 0.95
+  ci_delta: 0.05
+
+privacy:
+  delta: 0.01
+
+epsilon_values: [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]

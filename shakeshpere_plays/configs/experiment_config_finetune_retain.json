@@ -1,0 +1,43 @@
+{
+  "experiment": {
+    "run_folder": "runs_finetune_fs400",
+    "num_runs": 125,
+    "forget_prob": 0.5,
+    "strategy": "finetune_retain",
+    "dataset": "data_splits_speakers300_fs400"
+  },
+
+  "model": {
+    "embed_dim": 8,
+    "hidden_size": 256,
+    "num_layers": 2
+  },
+
+  "training": {
+    "epochs": 15,
+    "batch_size": 256,
+    "lr": 0.1,
+    "clip": 1.0,
+    "optimizer": "sgd",
+    "seed": 42,
+    "weight_decay": 0.0
+  },
+
+  "unlearning": {
+    "strategy": "finetune_retain",
+    "clip": 1.0,
+    "optimizer": "sgd",
+    "batch_size": 256,
+    "finetune_retain": {
+      "phase_2_epochs": 8,
+      "phase_2_lr": 0.05,
+      "weight_decay": 0.0
+    }
+  },
+
+  "generation": {
+    "seed_text": "To be, or not to be",
+    "n_chars": 300,
+    "temperature": 0.8
+  }
+}

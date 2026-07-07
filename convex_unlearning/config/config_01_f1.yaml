@@ -1,0 +1,31 @@
+config_id: "01_f1"
+random_state: 42
+loss: logistic
+
+n_partition: 1
+
+data:
+  n_retain: 4050
+  n_forget: 450
+  d: 20
+  theta_norm: 1.0
+  forget_norm: 10.0
+  link_function: f1
+  eta: 0.8
+  zeta: 0.9
+  feature_distribution: gaussian
+  n_val: 500
+  n_test: 1000
+
+training:
+  per_sample_reg: 1.0e-2
+  max_iter: 1000
+
+sample_config:
+  n_samples_per_dist: 1000
+  n_test: 10000
+
+privacy:
+  delta: 0.01
+
+epsilon_values: [0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 50, 100, 1000]

@@ -1,0 +1,40 @@
+# MSE loss: strategic data for LARGE separation (angle ~180°, full vs retain very different).
+# More forget than retain + strong forget_norm + very low reg so full model aligns with -θ*.
+config_id: output_perturbation_mse
+random_state: 42
+loss: mse
+
+n_partition: 1
+
+data:
+  n_total: 100
+  n_forget: 30
+  n_retain: 70
+  d: 2
+  theta_norm: 1.0
+  forget_norm: 20.0
+  forget_direction: opposite
+  link_function: linear
+  eta: 0.5
+  range_half: 10.0   # y in [-range_half, range_half] for MSE; increase for wider range
+  zeta: 0.9
+  feature_distribution: gaussian
+  n_val: 200
+  n_test: 400
+
+training:
+  per_sample_reg: 0
+  max_iter: 1000
+
+output_perturbation:
+  C_0: 0.1
+
+sample_config:
+  n_samples_per_dist: 500
+  n_test: 100000
+  confidence: 0.95
+
+privacy:
+  delta: 0.01
+
+epsilon_values: [0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100, 200, 400, 600, 800]

@@ -1,0 +1,46 @@
+{
+  "experiment": {
+    "run_folder": "runs_ascent_descent_fs400_q_9",
+    "num_runs": 75,
+    "forget_prob": 0.5,
+    "strategy": "ascent_descent",
+    "dataset": "data_splits_speakers300_fs400"
+  },
+
+  "model": {
+    "embed_dim": 8,
+    "hidden_size": 256,
+    "num_layers": 2
+  },
+
+  "training": {
+    "epochs": 15,
+    "batch_size": 256,
+    "lr": 0.1,
+    "clip": 1.0,
+    "optimizer": "sgd",
+    "seed": 42,
+    "weight_decay": 0.00
+  },
+
+  "unlearning": {
+    "strategy": "ascent_descent",
+    "clip": 1.0,
+    "optimizer": "sgd",
+    "batch_size": 256,
+    "ascent_descent": {
+      "epochs": 8,
+      "lr": 0.05,
+      "weight_decay": 0.00,
+      "q": 9,
+      "lambda_coef": 0.5,
+      "forget_epochs_ratio": 0.5
+    }
+  },
+
+  "generation": {
+    "seed_text": "To be, or not to be",
+    "n_chars": 300,
+    "temperature": 0.8
+  }
+}

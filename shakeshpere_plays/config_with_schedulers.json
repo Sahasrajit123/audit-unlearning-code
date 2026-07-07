@@ -1,0 +1,54 @@
+{
+  "experiment": {
+    "run_folder": "runs_ascent_descent_with_schedulers",
+    "num_runs": 10,
+    "forget_prob": 0.5,
+    "strategy": "ascent_descent",
+    "dataset": "data_splits_speakers300_fs400"
+  },
+
+  "data": {
+    "path": "shakespeare.txt",
+    "train_frac": 0.8,
+    "seq_len": 80
+  },
+
+  "model": {
+    "embed_dim": 8,
+    "hidden_size": 256,
+    "num_layers": 2
+  },
+
+  "training": {
+    "epochs": 15,
+    "batch_size": 256,
+    "lr": 0.1,
+    "clip": 1.0,
+    "optimizer": "sgd",
+    "seed": 42,
+    "weight_decay": 0.00,
+    "scheduler": "cosine"
+  },
+
+  "unlearning": {
+    "strategy": "ascent_descent",
+    "clip": 1.0,
+    "optimizer": "sgd",
+    "batch_size": 256,
+    "ascent_descent": {
+      "epochs": 8,
+      "lr": 0.05,
+      "weight_decay": 0.00,
+      "q": "1/4",
+      "lambda_coef": 0.5,
+      "forget_epochs_ratio": 0.5,
+      "scheduler": "cosine"
+    }
+  },
+
+  "generation": {
+    "seed_text": "To be, or not to be",
+    "n_chars": 300,
+    "temperature": 0.8
+  }
+}
