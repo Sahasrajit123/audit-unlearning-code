@@ -8,8 +8,8 @@ set -euo pipefail
 #
 # Usage:
 #   ./run_combination_forget_unlearning.sh \
-#       /lfs/mercury1/0/sahasras/r2d/data/cifar100/data_split/cifar100_bs_750 \
-#       /lfs/mercury1/0/sahasras/r2d/test_cifar100_combination_forget_runs_bs_750 \
+#       ./data/cifar100/data_split/cifar100_bs_750 \
+#       ./test_cifar100_combination_forget_runs_bs_750 \
 #       cifar100 \
 #       tinynetcifar100 \
 #       "1" \
@@ -38,8 +38,8 @@ set -euo pipefail
 #  13) COMBO_INDEX      1-based index of a single combination to run (default: all)
 # Note: COMBINATION_SIZE is computed automatically as NUM_FORGET_BATCHES / 2
 
-DATAROOT=${1:-/lfs/mercury1/0/sahasras/r2d/data/cifar100/data_split/cifar100_uniform_bs_2250_seed1}
-RESULTS_DIR_BASE=${2:-/lfs/mercury1/0/sahasras/r2d/cifar100_uniform_combination_forget_runs_bs_2250_lr_0_01}
+DATAROOT=${1:-./data/cifar100/data_split/cifar100_uniform_bs_2250_seed1}
+RESULTS_DIR_BASE=${2:-./cifar100_uniform_combination_forget_runs_bs_2250_lr_0_01}
 DATASET=${3:-cifar100}
 MODEL=${4:-tinynetcifar100}
 GPUS_STR=${5:-"6"}

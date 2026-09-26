@@ -21,13 +21,13 @@ def parse_args():
     parser.add_argument(
         "--dataroot",
         type=str,
-        default="/lfs/mercury1/0/sahasras/r2d/data/cifar10",
+        default="./data/cifar10",
         help="Root path for CIFAR10 pre-split data.",
     )
     parser.add_argument(
         "--results_dir",
         type=str,
-        default="/lfs/mercury1/0/sahasras/r2d/random_forget_runs",
+        default="./random_forget_runs",
         help="Where to store per-run outputs.",
     )
     parser.add_argument(
@@ -81,7 +81,7 @@ def parse_args():
     parser.add_argument(
         "--main_path",
         type=str,
-        default="/lfs/mercury1/0/sahasras/r2d/main.py",
+        default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "main.py"),
         help="Path to main.py entrypoint.",
     )
     parser.add_argument(

@@ -53,7 +53,7 @@ post_unlearning:
 
 wandb:
   project: "unlearning-dp-final"
-  entity: "unlearning-dynamics"
+  entity: null  # your wandb entity (null = wandb default)
   log_dir: "./wandb_logs"
 
 save_every: 1

@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(sed -i 's/from our NeurIPS submission/from our ICLR submission/; s|^r2d_neurips/$|r2d_audit_iclr/|' r2d_neurips/README.md)",
-      "Bash(mv r2d_neurips r2d_audit_iclr)"
-    ]
-  }
-}
