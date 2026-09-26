@@ -1,0 +1,74 @@
+# SCRUB at unlearning LR 1e-4 -- 1/5 of the paper's 5e-4, the LOW end of the curve. One of
+# three LR variants of configs/scrub.yaml (1e-4 / 1e-3 / 3e-3) which, together with the
+# 5e-4 sweep in runs/scrub/cifar100_bs_1, give a four-point LR curve for the audit.
+#
+# This one is the control: less unlearning than the paper's setting, so the audit's eps
+# lower bound is expected to come out WORSE (closer to the trained model's ~180 at k=500).
+# A curve that is not monotone in the LR would say the bound is not tracking unlearning
+# strength, which is worth knowing before reading anything into the 3e-3 end.
+#
+# EVERYTHING except unlearn_lr is identical to configs/scrub.yaml -- including the seeds,
+# so run i gets the same forget sample and unlearn sub-seeds in every variant and the four
+# sweeps are paired run-for-run. The training block being unchanged is what lets this
+# sweep reuse an existing sweep's trained models:
+#
+#   python run_sweep.py --config configs/scrub_unlearn_lr_1e-4.yaml \
+#       --run-dir runs/scrub/cifar100_unlearn_lr_1e-4_bs_1 \
+#       --reuse-trained-from runs/scrub/cifar100_bs_1 \
+#       --num-runs 60 --gpus 0,1,2,3,4,5,6,7,8,9 --runs-per-gpu 2
+
+unlearn_method: scrub
+
+# ---- Stage 1: forget sampling ----
+dataset: cifar100
+forget_prob: 0.5
+
+# ---- Stage 2: training. Identical to configs/delete.yaml and configs/badteacher.yaml on
+#      purpose: the trained model being unlearned is the same whichever method runs next,
+#      which is what makes the four methods' audit numbers comparable. ----
+batch_size: 128
+epochs: 200
+lr: 2.0e-2
+weight_decay: 5.0e-4
+optimizer: sgd
+momentum: 0.0
+lr_scheduler: cosine
+scheduler_gamma: 0.1
+
+# ---- Stage 3: unlearning ----
+unlearn_epochs: 3           # the paper's STEPS (args.sgda_epochs)
+unlearn_lr: 1.0e-4          # varied: the paper's value is 5e-4 (args.sgda_learning_rate)
+unlearn_batch_size: 128     # retain-set (min-step) batch size
+scrub_forget_batch_size: 512  # forget-set (max-step) batch size -- tuned separately
+scrub_msteps: 2             # the paper's MAX-STEPS: epochs 1-2 get a max-step, epoch 3 does not
+scrub_alpha: 0.001          # weight on the min-step's KL-to-teacher term
+scrub_gamma: 0.99           # weight on the min-step's retain cross-entropy term
+scrub_kd_temperature: 4.0   # args.kd_T
+scrub_optim: sgd            # shared by min- and max-steps, as in the original
+scrub_momentum: 0.9
+scrub_weight_decay: 5.0e-4  # unlearning-stage weight decay, separate from training's
+scrub_lr_decay_epochs: 3,5,9
+scrub_lr_decay_rate: 0.1
+# Left off: the unlearning loop already reports forget error every epoch, and the extra
+# full-split evaluation passes cost a pass per split per epoch.
+eval_every_unlearn_epoch: false
+
+# ---- Seeding. Unchanged from configs/scrub.yaml, deliberately: run i gets the same
+#      forget sample and the same unlearn sub-seeds as in the 5e-4 sweep, so the two are
+#      paired run-for-run and the only difference between them is the LR. ----
+seed: 42
+
+sweep:                # read only by run_sweep.py
+  unlearn_seed_base: 1000
+  forget_seed_base: 2000
+  num_runs: 60
+  unlearn_checkpoint_every: 1   # -> every intermediate epoch (1, 2 of 3)
+  runs_per_gpu: 1
+
+single:               # read only by train_and_unlearn.py
+  # Parent dir only -- train_and_unlearn.py appends an auto-generated leaf name
+  # (dataset_model_method_seedN_unlearnseedN), which does NOT encode the LR. Kept separate
+  # from configs/scrub.yaml's runs/scrub so a single run at 3e-3 can't be mistaken for one
+  # at the paper's 5e-4. Sweeps ignore this block entirely (run_sweep.py takes --run-dir).
+  out_dir: runs/scrub_unlearn_lr_1e-4
+  unlearn_checkpoint_every: null

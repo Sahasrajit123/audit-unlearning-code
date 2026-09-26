@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(conda run -n torch_jax_gpu python -c ' *)",
+      "Bash(grep -n '^| `' README.md)",
+      "Bash(cd /lfs/mercury1/0/sahasras && test ! -e convex_unlearning_output_perturbation_iclr && grep -rl \"convex_unlearning_output_perturbation_neurips\" convex_unlearning_output_perturbation_neurips 2>/dev/null; mv convex_unlearning_output_perturbation_neurips convex_unlearning_output_perturbation_iclr && ls -d convex_unlearning_output_perturbation_*)"
+    ]
+  }
+}

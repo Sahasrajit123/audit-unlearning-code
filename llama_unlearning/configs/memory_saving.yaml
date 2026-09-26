@@ -1,0 +1,28 @@
+# Memory-saving mode: 8-bit optimizer states.
+#
+# Use when the target GPU has less headroom than a full-parameter BF16 fine-tune of
+# Llama-3.2-1B needs (~20-25 GiB with fp32 AdamW). The 8-bit optimizer replaces the
+# two fp32 moment buffers (~9.9 GiB for 1.24B params) with int8 (~2.5 GiB).
+#
+# Requires bitsandbytes. If it is missing, build_optimizer falls back to fp32 AdamW
+# and prints a WARNING rather than failing silently -- a silent fallback would
+# invalidate the memory numbers a sizing decision rests on.
+#
+#   python scripts/run_single.py --config configs/memory_saving.yaml --run_id calib_000
+
+include: [base.yaml]
+
+training:
+  optimizer: adamw_8bit
+  micro_batch_size: 1
+  gradient_accumulation_steps: 16   # effective batch size still 16
+
+unlearning:
+  npo:
+    optimizer: adamw_8bit
+    micro_batch_size: 1
+    gradient_accumulation_steps: 16
+  retain_ft:
+    optimizer: adamw_8bit
+    micro_batch_size: 1
+    gradient_accumulation_steps: 16

@@ -1,0 +1,47 @@
+# QA-level auditing: B = 1, m = 400 candidate batches.
+#
+# Predicts, for each individual (question, answer) pair, whether it was included in
+# fine-tuning and then unlearned. This is the small-B / large-m end of the paper's
+# §6 trade-off, which Remark 4.3 recommends for HEURISTIC methods -- they leak
+# strongly per batch, so a small B is affordable and the larger m raises the ceiling.
+#
+#   perfect-attack ceiling at L=10:   m=20 -> 6.59      m=400 -> 137.54
+#
+# Measure the signal before committing the full budget:
+#   python scripts/build_manifest.py --config configs/qa_level.yaml
+#   for i in 000 001 002 003 004; do
+#     python scripts/run_single.py --config configs/qa_level.yaml \
+#         --run_id calib_$i --methods noop --gpu 0
+#   done
+#   python scripts/analyze_signal.py --config configs/qa_level.yaml --method noop
+#
+# For an intermediate B, override all three collision-prone paths at once:
+#   python scripts/build_manifest.py --config configs/qa_level.yaml --set \
+#       split.batching=4 \
+#       experiment.output_root=runs/audit_B4 \
+#       experiment.manifest_path=runs/audit_B4/manifest.json
+#
+# Valid B for qa_per_author=20: 1, 2, 4, 5, 10, 20 (must divide it evenly).
+#   B=20 -> m=20 ('author')   B=10 -> m=40    B=5 -> m=80
+#   B=4  -> m=100             B=2  -> m=200   B=1 -> m=400 ('qa')
+
+include: [base.yaml]
+
+experiment:
+  name: tofu_llama32_1b_audit_qa_level
+  output_root: runs/audit_qa_level
+  manifest_path: runs/audit_qa_level/manifest.json
+
+split:
+  batching: qa            # B = 1 -> m = 400
+
+attack:
+  # m = 400 admits far larger support sizes, and the ceiling keeps climbing with r.
+  # The realized optimum is an inverted U (Remark 4.3), so sweep widely and let
+  # aggregate_audit.py freeze r on calibration-only data.
+  r_values: [4, 20, 40, 100, 200, 400]
+
+  # With B = 1 a candidate batch IS a single QA pair, so there is nothing to pool
+  # across and nothing to aggregate: Lambda_j = lambda_z. Per-QA variances are all
+  # that exist, so the variance floor does the small-sample work alone.
+  pool_variance: null

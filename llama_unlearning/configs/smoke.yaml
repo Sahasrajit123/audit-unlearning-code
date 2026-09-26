@@ -1,0 +1,77 @@
+# Tiny end-to-end smoke test: a very small causal LM and 4 candidate batches.
+#
+# Exercises the full pipeline (manifest -> train -> unlearn -> score -> attack ->
+# epsilon) in a couple of minutes on CPU or one small GPU. Not an audit: m=4 and a
+# random tiny model cannot produce a meaningful epsilon.
+#
+#   python scripts/run_smoke.py --config configs/smoke.yaml
+
+include: [base.yaml]
+
+experiment:
+  name: smoke
+  output_root: ./smoke_runs
+  manifest_path: ./smoke_runs/manifest.json
+  methods: [noop, npo, retain_ft]
+
+dataset:
+  # Synthetic QA pairs, generated in-process. No network needed.
+  name: __synthetic__
+  config: full
+  qa_per_author: 4
+
+split:
+  # MUST override base.yaml's pinning. base pins the candidate pool to TOFU authors
+  # 180..199, but this config uses the 10-author synthetic dataset, where those
+  # authors do not exist and 20 pinned ids contradict num_candidate_authors=4.
+  # Inheriting it makes build_manifest.py fail outright. The smoke test only
+  # exercises plumbing, so a random partition is exactly right here.
+  candidate_author_ids: null
+  num_candidate_authors: 4
+  num_retain_authors: 6
+  # |S_4| = C(4,2) = 6 distinct balanced vectors exist, and calibration/evaluation
+  # must be disjoint, so 4 + 2 saturates the supply at m=4.
+  num_calibration_runs: 4
+  num_evaluation_runs: 2
+
+model:
+  id: hf-internal-testing/tiny-random-LlamaForCausalLM
+  dtype: float32
+  attn_implementation: eager
+  gradient_checkpointing: false
+
+training:
+  epochs: 2
+  max_seq_length: 64
+  micro_batch_size: 2
+  gradient_accumulation_steps: 1
+  learning_rate: 1.0e-3
+
+unlearning:
+  npo:
+    epochs: 1
+    max_seq_length: 64
+    micro_batch_size: 2
+    gradient_accumulation_steps: 1
+    learning_rate: 1.0e-3
+  retain_ft:
+    epochs: 1
+    max_seq_length: 64
+    micro_batch_size: 2
+    gradient_accumulation_steps: 1
+    learning_rate: 1.0e-3
+
+scoring:
+  batch_size: 4
+  max_seq_length: 64
+
+attack:
+  var_floor: 1.0e-4
+  pool_variance: author
+  r_values: [2, 4]
+
+utility:
+  enabled: false
+
+storage:
+  retention: delete_after_scoring

@@ -1,0 +1,49 @@
+# DELETE (mask distillation) -- Zhou et al., "Decoupled Distillation to Erase", CVPR 2025.
+#
+# These are exactly the settings the DELETE sweeps under runs/delete/ were produced with,
+# so `--config configs/delete.yaml` reproduces them. Any key here can still be overridden
+# on the command line, e.g.
+#
+#   python run_sweep.py --config configs/delete.yaml --run-dir runs/delete/my_sweep \
+#       --unlearn-lr 3e-3
+#
+# See config.py for the full precedence chain and the YAML schema.
+
+unlearn_method: delete
+
+# ---- Stage 1: forget sampling ----
+dataset: cifar100
+forget_prob: 0.5
+
+# ---- Stage 2: training (identical for both methods -- the trained model that gets
+#      unlearned does not depend on which unlearning algorithm runs afterwards) ----
+batch_size: 128
+epochs: 200
+lr: 2.0e-2            # safe to start this high because lr_scheduler anneals it to 0
+weight_decay: 5.0e-4
+optimizer: sgd
+momentum: 0.0
+lr_scheduler: cosine
+scheduler_gamma: 0.1
+
+# ---- Stage 3: unlearning. The official repo's recommended setting for --method delete
+#      (scripts.sh): SGD(momentum=0.9), lr 1e-3, 20 epochs. The optimizer is not a knob --
+#      the official repo hardcodes it, and so does unlearning/delete.py. ----
+unlearn_epochs: 20
+unlearn_lr: 1.0e-3
+disable_bn: false     # the official repo only enables this for Tiny-ImageNet single-class
+eval_every_unlearn_epoch: true
+
+# ---- Seeding ----
+seed: 42              # model init + training batch order; fixed across a whole sweep
+
+sweep:                # read only by run_sweep.py
+  unlearn_seed_base: 1000
+  forget_seed_base: 2000
+  num_runs: 60
+  unlearn_checkpoint_every: 3   # -> epochs 3, 6, 9, 12, 15, 18 of 20
+  runs_per_gpu: 2
+
+single:               # read only by train_and_unlearn.py
+  out_dir: runs/delete
+  unlearn_checkpoint_every: null   # a one-off run keeps only the final unlearned model

@@ -1,0 +1,39 @@
+# PROXY PILOT -- NOT AN AUDIT RESULT.
+#
+# Purpose: exercise the full 1B-scale code path (fine-tune -> checkpoint -> branch
+# into every method -> score -> resource accounting) and obtain MEASURED runtime and
+# peak-memory numbers, while `meta-llama/Llama-3.2-1B-Instruct` is gated (HTTP 403).
+#
+# The model here is NOT the audited model. Qwen2.5-1.5B-Instruct is a stand-in chosen
+# because it is already cached locally and, at 1.54 B parameters versus Llama-3.2-1B's
+# 1.24 B, it is *larger* -- so its memory and timing figures are a conservative upper
+# bound for the real thing rather than an optimistic one.
+#
+# Any epsilon produced under this config is meaningless as an audit of Llama-3.2-1B.
+# It goes to its own output_root so it can never be aggregated together with real runs
+# (the split_hash check would refuse anyway).
+#
+#   python scripts/build_manifest.py --config configs/proxy_pilot.yaml
+#   python scripts/run_single.py --config configs/proxy_pilot.yaml --run_id calib_000 --gpu 7
+
+include: [base.yaml]
+
+experiment:
+  name: proxy_pilot_qwen25_1p5b_NOT_AN_AUDIT
+  output_root: runs/proxy_pilot
+  manifest_path: runs/proxy_pilot/manifest.json
+  # All three methods, so NPO's frozen reference model and retain_ft are both timed.
+  methods: [noop, npo, retain_ft]
+
+model:
+  id: Qwen/Qwen2.5-1.5B-Instruct
+
+utility:
+  # The utility suite is a separate, well-understood cost and is not what this
+  # pilot is measuring; skipping it keeps the run to the audit-critical path.
+  enabled: false
+
+storage:
+  # Keep the fine-tuned checkpoint so its on-disk size can be measured and so the
+  # method branches can be re-timed without repeating the fine-tune.
+  retention: keep_trained

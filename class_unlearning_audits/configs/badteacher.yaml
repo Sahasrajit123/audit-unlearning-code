@@ -1,0 +1,52 @@
+# Bad teacher (gated knowledge distillation) -- Chundawat et al., "Can Bad Teaching
+# Induce Forgetting?", AAAI 2023.
+#
+# These are exactly the settings the bad-teacher sweeps under runs/badteacher/ were
+# produced with, so `--config configs/badteacher.yaml` reproduces them. Any key here can
+# still be overridden on the command line, e.g.
+#
+#   python run_sweep.py --config configs/badteacher.yaml \
+#       --run-dir runs/badteacher/my_sweep --unlearn-epochs 1
+#
+# See config.py for the full precedence chain and the YAML schema.
+
+unlearn_method: badteacher
+
+# ---- Stage 1: forget sampling ----
+dataset: cifar100
+forget_prob: 0.5
+
+# ---- Stage 2: training. Identical to configs/delete.yaml on purpose: the trained model
+#      being unlearned is the same either way, which is what makes the audit numbers from
+#      the two methods comparable. ----
+batch_size: 128
+epochs: 200
+lr: 2.0e-2
+weight_decay: 5.0e-4
+optimizer: sgd
+momentum: 0.0
+lr_scheduler: cosine
+scheduler_gamma: 0.1
+
+# ---- Stage 3: unlearning. Adam (hardcoded in the official repo, as in
+#      unlearning/badteacher.py) with the tuned lr/epochs this project's sweeps used. ----
+unlearn_epochs: 5
+unlearn_lr: 3.0e-3
+temperature: 1.0      # KL distillation temperature, applied to both teachers + student
+# Left off: blindspot_unlearner already reports forget accuracy every epoch, and the
+# sweeps on disk were run without the extra full-split evaluation passes.
+eval_every_unlearn_epoch: false
+
+# ---- Seeding ----
+seed: 42
+
+sweep:                # read only by run_sweep.py
+  unlearn_seed_base: 1000
+  forget_seed_base: 2000
+  num_runs: 60
+  unlearn_checkpoint_every: 1   # -> every intermediate epoch (1, 2, 3, 4 of 5)
+  runs_per_gpu: 1
+
+single:               # read only by train_and_unlearn.py
+  out_dir: runs/badteacher
+  unlearn_checkpoint_every: null

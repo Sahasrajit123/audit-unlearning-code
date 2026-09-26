@@ -1,0 +1,69 @@
+# SCRUB+R -- SCRUB plus the rewinding step of Section 3.2 of Kurmanji et al., "Towards
+# Unbounded Machine Unlearning", NeurIPS 2023 (arXiv:2302.09880).
+#
+# Hyperparameters are identical to configs/scrub.yaml (rewinding changes which epoch is
+# returned, not the trajectory): with the same seeds, scrub and scrub_r walk exactly the
+# same path, and scrub_r stops at the epoch whose forget error is closest to the error of
+# the final model on held-out validation examples from the forget set's own classes.
+#
+# That is the variant to compare against for privacy specifically -- the paper motivates
+# rewinding by MIA vulnerability, i.e. by the same "the forget error is suspiciously high"
+# signal this project's audit measures.
+
+unlearn_method: scrub_r
+
+# ---- Stage 1: forget sampling ----
+dataset: cifar100
+forget_prob: 0.5
+
+# ---- Stage 2: training. Identical to every other configs/*.yaml on purpose. ----
+batch_size: 128
+epochs: 200
+lr: 2.0e-2
+weight_decay: 5.0e-4
+optimizer: sgd
+momentum: 0.0
+lr_scheduler: cosine
+scheduler_gamma: 0.1
+
+# ---- Stage 3: unlearning (see configs/scrub.yaml for what each knob is) ----
+unlearn_epochs: 3
+unlearn_lr: 5.0e-4
+unlearn_batch_size: 128
+scrub_forget_batch_size: 512
+scrub_msteps: 2
+scrub_alpha: 0.001
+scrub_gamma: 0.99
+scrub_kd_temperature: 4.0
+scrub_optim: sgd
+scrub_momentum: 0.9
+scrub_weight_decay: 5.0e-4
+scrub_lr_decay_epochs: 3,5,9
+scrub_lr_decay_rate: 0.1
+eval_every_unlearn_epoch: false
+
+# Which epoch wins when several are equally close to the rewind reference.
+#   earliest -- the first epoch that reached the reference ("rewind" to just-high-enough)
+#   latest   -- rewind only when some epoch is strictly closer, i.e. scrub_r reduces to
+#               scrub whenever the criterion is indifferent
+# On the 200-epoch cifar100_bs_1 sweep this moves one run in sixty (the reference lands
+# at 92-94%, not at a saturated 100%), so the default is fine. It only decides the whole
+# method when the criterion saturates -- see unlearning/scrub.py::select_rewind_epoch.
+scrub_rewind_tie_break: earliest
+
+# ---- Seeding ----
+seed: 42
+
+sweep:                # read only by run_sweep.py
+  unlearn_seed_base: 1000
+  forget_seed_base: 2000
+  num_runs: 60
+  # Every intermediate epoch. Note that for scrub_r these files are the *un-rewound*
+  # SCRUB checkpoints: unlearned_model.pth is the rewind target, and the final SCRUB
+  # epoch is written out too whenever rewinding moved off it.
+  unlearn_checkpoint_every: 1
+  runs_per_gpu: 1
+
+single:               # read only by train_and_unlearn.py
+  out_dir: runs/scrub_r
+  unlearn_checkpoint_every: null

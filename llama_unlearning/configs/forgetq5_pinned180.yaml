@@ -1,0 +1,101 @@
+# Forget-quality experiment: 5 evaluation runs on a PINNED candidate pool, plus a
+# retain-only reference model.
+#
+# Purpose. TOFU forget quality is a KS test between the forget-set truth-ratio
+# distribution of an unlearned model and that of a reference model that never trained
+# on the forget set. The main audit (configs/base.yaml) cannot produce it, for a
+# reason that is about the split rather than about missing code:
+#
+#   base.yaml draws its 20 candidate authors at random from the 200 (split_seed).
+#   The utility suite's `forget` group is hardwired to TOFU's forget10_perturbed,
+#   i.e. authors 180..199. Those two sets overlap in only 3 authors; the other 17 of
+#   the KS group sit in the audit's RETAIN set, trained in every run and never
+#   unlearned. So a D_r-trained reference has memorized 85% of the rows being tested
+#   (p -> 1 regardless of method), and a retain90-trained reference is ignorant of 17
+#   authors the audit deliberately keeps (p -> 0 regardless of method). Either way the
+#   number does not move with unlearning quality.
+#
+# Fix: pin the candidate pool to authors 180..199, so that
+#   candidate pool  == forget10_perturbed's authors  (the KS group is the forget set)
+#   D_r             == authors 0..179 == retain90    (the reference is ignorant of it)
+#   retain_perturbed (authors 0..22)  \subset D_r     (no retain contamination)
+# Pinning is compatible with the bound: validity needs the pool FIXED before any run
+# and the SIGN VECTORS i.i.d. uniform over S_m (paper §4). It does not require the
+# pool itself to be randomly drawn. See docs/IMPLEMENTATION.md.
+#
+# NOT comparable to published TOFU numbers. Standard TOFU fine-tunes on all 200
+# authors then unlearns forget10; an audit run trains on D_r plus the +1 candidates
+# (190 authors under a balanced sign vector). Different base model, different forget
+# size. Pinning buys internal coherence, not external comparability -- and the two are
+# mutually exclusive, because standard TOFU has no "out" condition at all.
+#
+#   python scripts/build_manifest.py --config configs/forgetq5_pinned180.yaml
+#   python scripts/train_reference.py --config configs/forgetq5_pinned180.yaml --gpu 3
+#   FAMILIES=evaluation scripts/run_audit.sh configs/forgetq5_pinned180.yaml 3,4 1
+#   python scripts/forget_quality.py --config configs/forgetq5_pinned180.yaml
+#
+# NO EPSILON. Only the 5 evaluation runs are executed, so there is no calibration
+# data to fit the per-QA Gaussians and audit/ stays empty. The manifest still pins 20
+# calibration vectors (below), so epsilon remains available later for the cost of
+# running them -- same split_hash, no re-training of these 5 runs.
+
+include: [base.yaml]
+
+experiment:
+  name: tofu_llama32_1b_forgetq5_pinned180
+  output_root: runs/forgetq5_pinned180
+  manifest_path: runs/forgetq5_pinned180/manifest.json
+  # All six. grad_ascent collapsed last time (model_utility 0.11, epsilon undefined)
+  # and that is worth keeping: it is the case where forget quality and the audit
+  # disagree most loudly, which is the whole argument for reporting both.
+  methods: [noop, npo, retain_ft, grad_ascent, grad_diff, simnpo]
+
+split:
+  # THE pinning. Candidates = TOFU forget10 = authors 180..199; retain = 0..179.
+  candidate_author_ids: "180-199"
+  num_candidate_authors: 20
+  num_retain_authors: 180
+  batching: author
+  # 20 calibration vectors are sampled and pinned but NOT run here. Sampling them now
+  # costs nothing and keeps epsilon reachable later without a new manifest; building
+  # with 1 would force a fresh split (and a full re-run) to get epsilon.
+  num_calibration_runs: 20
+  num_evaluation_runs: 5
+
+utility:
+  enabled: true
+  calibration_runs: false
+  # ON. This experiment exists for the behavioural metrics, and ROUGE-L recall is the
+  # only one that shows whether the model still GENERATES the memorized answer --
+  # probability and truth ratio cannot. It also lifts model_utility from 4 averaged
+  # terms to 7 (real_authors/world_facts truth ratios exceed 1, so max(0, 1-tr)
+  # clamps them to 0 and they are then dropped by the v > 0 filter).
+  # Cost: ~12-19 min per method per run, ~6-9 GPU-hours total.
+  compute_rouge: true
+  # MUST stay null. `limit` truncates every split to its first N rows, and since
+  # forget10_perturbed is author-ordered, limit=100 would keep only authors 180..184
+  # and destroy the +1/-1 sign-vector slicing. It is all-or-nothing here.
+  limit: null
+  # Left null deliberately: forget quality is computed post-hoc by
+  # scripts/forget_quality.py from the stored per-row truth ratios, which removes the
+  # ordering dependency (the reference no longer has to exist before the runs) and
+  # makes every KS variant recomputable without touching a GPU.
+  reference_truth_ratios_path: null
+
+storage:
+  # keep_all: inherited from base.yaml, restated here because it matters for this
+  # experiment. Keeping the unlearned branches means a new metric costs a forward
+  # pass, not a re-run -- which is precisely the hole we fell into when forget
+  # quality turned out to need truth ratios only the deleted models could produce.
+  # 5 runs x ~17 GiB = ~85 GiB.
+  retention: keep_all
+  save_trained_checkpoint: true
+  save_unlearned_checkpoint: true
+
+wandb:
+  enabled: true
+  # Separate project so these cannot be confused with the 30-run audit already in
+  # tofu-unlearning-audit. Runs land as "<run_id>/<method>" grouped by
+  # "<experiment.name>-<split_hash[:8]>"; the reference logs as "reference/retain_only".
+  project: tofu-forget-quality
+  tags: [forgetq5, pinned_forget10, reference_ks]

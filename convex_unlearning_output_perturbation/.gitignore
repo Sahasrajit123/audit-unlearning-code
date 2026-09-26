@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Experiment outputs
+eps_lower_bounds/
+privacy_attack_results_config_*/
+log_*.txt
+*.pkl
+
+# Editor / local
+.claude/settings.local.json

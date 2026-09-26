@@ -1,0 +1,23 @@
+# One-run Llama-3.2-1B pilot: measures runtime, peak memory and output schema
+# before any multi-run launch.
+#
+# Runs a single calibration run through the full pipeline with the `noop` method
+# only. `noop` is the right pilot method because it is the positive leakage control:
+# if its in/out losses are not visibly separated, stop and diagnose before spending
+# compute on NPO.
+#
+#   python scripts/run_single.py --config configs/pilot.yaml --run_id calib_000
+
+include: [base.yaml]
+
+experiment:
+  name: tofu_llama32_1b_pilot
+  output_root: runs/pilot
+  manifest_path: runs/pilot/manifest.json
+  methods: [noop]
+
+utility:
+  enabled: false      # the pilot measures the audit path; utility adds little here
+
+storage:
+  retention: keep_trained   # keep the checkpoint so NPO can be timed separately

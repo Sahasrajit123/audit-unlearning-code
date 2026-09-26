@@ -1,0 +1,20 @@
+# Audit math, manifest, attack, aggregation, and the full CPU test suite
+numpy
+scipy
+pyyaml
+matplotlib
+pytest
+datasets
+rouge_score    # ROUGE-L recall; upstream TOFU's own scorer, so values are
+               # comparable to published numbers. Required by the test suite even
+               # though utility.compute_rouge defaults to false.
+
+# Training, unlearning, scoring, the smoke test, and the pilot
+torch          # install from https://download.pytorch.org/whl/cu124 for CUDA 12.4
+transformers
+accelerate
+
+# Optional
+bitsandbytes   # configs/memory_saving.yaml (8-bit optimizer)
+peft           # configs/lora_fallback.yaml (LoRA)
+flash-attn     # faster attention; SDPA fallback is automatic

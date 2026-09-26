@@ -1,0 +1,36 @@
+# LoRA fallback -- CLEARLY LABELLED as auditing a different pipeline.
+#
+# An epsilon produced under this config is a lower bound on the unlearning parameter
+# of the LoRA training+unlearning pipeline, NOT of the full-parameter pipeline. LoRA
+# constrains which directions training and unlearning can move in at all, so the two
+# epsilons are not comparable and must not be reported interchangeably.
+#
+# Every run under this config carries an `audit_scope_warning` in its metadata.
+#
+#   python scripts/run_single.py --config configs/lora_fallback.yaml --run_id calib_000
+
+include: [base.yaml]
+
+experiment:
+  name: tofu_llama32_1b_audit_lora
+  output_root: runs/tofu_llama32_1b_audit_lora
+  manifest_path: runs/tofu_llama32_1b_audit_lora/manifest.json
+
+model:
+  lora:
+    enabled: true
+    r: 16
+    alpha: 32
+    dropout: 0.0
+
+training:
+  # LoRA tunes far fewer parameters, so it needs a substantially larger LR.
+  learning_rate: 2.0e-4
+  micro_batch_size: 4
+  gradient_accumulation_steps: 4
+
+unlearning:
+  npo:
+    learning_rate: 2.0e-4
+  retain_ft:
+    learning_rate: 2.0e-4

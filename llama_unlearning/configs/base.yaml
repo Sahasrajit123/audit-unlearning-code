@@ -1,0 +1,300 @@
+# Base configuration for the TOFU / Llama-3.2-1B unlearning audit.
+#
+# Every other config includes this one and overrides only what it changes.
+# The effective, fully-merged config is saved with every run result.
+
+experiment:
+  name: tofu_llama32_1b_audit
+  output_root: runs/tofu_llama32_1b_audit
+  manifest_path: runs/tofu_llama32_1b_audit/manifest.json
+  # Order matters only for logging. All branch from the SAME fine-tuned checkpoint,
+  # so extra methods cost only their own unlearn+score time (~16% for these five).
+  methods: [noop, npo, retain_ft, grad_ascent, grad_diff, simnpo]
+
+dataset:
+  name: locuslab/TOFU
+  config: full
+  revision: null
+  cache_dir: null
+  qa_per_author: 20
+
+# ----------------------------------------------------------------------------
+# Audit split. Generated once by scripts/build_manifest.py, then immutable.
+# ----------------------------------------------------------------------------
+split:
+  # Candidate pool PINNED to TOFU's published forget10 (authors 180..199), so
+  # D_r == retain90 (authors 0..179) exactly. Was a random draw from split_seed.
+  #
+  # Why. TOFU's evaluation files are built around the forget10/retain90 boundary:
+  # forget10_perturbed covers only authors 180..199 and retain_perturbed only 0..22,
+  # and perturbed answers (required for truth ratio) exist for just 41 of the 200
+  # authors. A random candidate draw cuts across that boundary -- the previous
+  # split put only 3 of its 20 candidates inside forget10_perturbed, left 17
+  # never-unlearned retain authors inside the KS group, and put 14 candidates in the
+  # 157 authors that have no perturbed data at all and so can never be scored.
+  # Pinning makes the audit's partition agree with the one the eval data assumes.
+  #
+  # This is compatible with the bound: validity requires the pool to be FIXED before
+  # any run and the SIGN VECTORS i.i.d. uniform over S_m (paper §4), not the pool
+  # itself to be randomly drawn. With 20 + 180 = 200 the partition is fully
+  # determined and split_seed has no effect on it (it still drives all sign vectors).
+  # See docs/IMPLEMENTATION.md §14.
+  candidate_author_ids: "180-199"
+  num_candidate_authors: 20     # m = 20 candidate forget batches
+  num_retain_authors: 180       # fixed retain set D_r, identical in every run
+  batching: author              # 'author' (default) or 'qa' -> m = 400
+  num_calibration_runs: 20      # Gamma
+  num_evaluation_runs: 10       # L
+  # How the CALIBRATION sign vectors are drawn. Evaluation vectors are always
+  # i.i.d. uniform over S_m, because the epsilon bound depends on that.
+  #   iid        - each calibration vector drawn independently (spec default).
+  #                Per-author observation counts then vary: at Gamma=20 the
+  #                realized range is n_in in [4, 14], so some QA Gaussians are
+  #                fitted from only 4 points. Pooled variance mitigates this.
+  #   stratified - each author is +1 in exactly Gamma/2 runs, giving every QA pair
+  #                10 in and 10 out observations. Legitimate because calibration
+  #                runs only construct the attack, but it departs from "each run
+  #                samples S independently". See docs/IMPLEMENTATION.md.
+  calibration_balance: iid
+
+seeds:
+  split_seed: 12345             # author partition + all sign vectors
+  data_order_seed: 777          # ONE fixed global example ordering
+  train_seed_base: 1000         # per-run stochastic training seed  (base + index)
+  unlearn_seed_base: 2000       # per-run unlearning seed           (base + index)
+
+# ----------------------------------------------------------------------------
+# Initial fine-tuning. Runs ONCE per sign-vector run, then branched per method.
+# ----------------------------------------------------------------------------
+model:
+  # The spec pins this checkpoint. It is gated on the Hub: request access at
+  # https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct
+  # There is deliberately NO automatic fallback to an ungated mirror, so a run can
+  # never silently audit different weights than the ones reported.
+  id: meta-llama/Llama-3.2-1B-Instruct
+  dtype: bfloat16
+  attn_implementation: auto     # FlashAttention-2 when available, else SDPA
+  gradient_checkpointing: true
+  trust_remote_code: false
+  lora:
+    enabled: false              # optional fallback; audits a PEFT pipeline, not this one
+    r: 16
+    alpha: 32
+    dropout: 0.0
+
+training:
+  epochs: 5
+  max_seq_length: 512
+  micro_batch_size: 2
+  gradient_accumulation_steps: 8   # effective batch size 16
+  learning_rate: 1.0e-5            # see docs/IMPLEMENTATION.md on this choice
+  weight_decay: 0.01
+  lr_schedule: linear
+  warmup_ratio: 0.0
+  max_grad_norm: 1.0
+  optimizer: adamw                 # 'adamw_8bit' for the memory-saving mode
+  log_every_n_optimizer_steps: 25  # intra-epoch progress + ETA in run.log
+  append_eos: true                 # MUST match scoring; read back from run config
+  system_prompt: null
+  reshuffle_each_epoch: false      # keep the fixed global order
+
+# ----------------------------------------------------------------------------
+# Unlearning. Each method starts from the same saved trained checkpoint.
+# ----------------------------------------------------------------------------
+unlearning:
+  noop: {}
+
+  npo:
+    beta: 0.1
+    retain_weight: 1.0            # >0 == OpenUnlearning's NPO_RT; 0 == pure NPO
+    sequence_reduction: sum
+    epochs: 5
+    micro_batch_size: 2
+    gradient_accumulation_steps: 8
+    learning_rate: 1.0e-5
+    weight_decay: 0.01
+    max_grad_norm: 1.0
+    optimizer: adamw
+    max_seq_length: 512
+    append_eos: true
+    system_prompt: null
+
+  # OpenUnlearning's GradAscent: L = -forget_nll. Forget-only by design -- upstream
+  # takes no alpha/gamma, so no retain term is added here. The objective is UNBOUNDED
+  # below, so it diverges if run long; upstream uses 10 epochs, the audit paper's
+  # ascent phase used 2. We default to 2 and warn if the forget NLL explodes.
+  grad_ascent:
+    epochs: 2
+    micro_batch_size: 2
+    gradient_accumulation_steps: 8
+    learning_rate: 1.0e-5
+    weight_decay: 0.01
+    max_grad_norm: 1.0
+    optimizer: adamw
+    max_seq_length: 512
+    append_eos: true
+    system_prompt: null
+
+  # OpenUnlearning's GradDiff: L = gamma*(-forget_nll) + alpha*retain_nll,
+  # at their defaults gamma=1.0, alpha=1.0. The retain term bounds the ascent, which
+  # makes this the closest LLM analogue to the audit paper's interleaved
+  # descent-ascent (IDA) heuristic.
+  grad_diff:
+    gamma: 1.0            # forget-term weight (upstream's gamma)
+    alpha: 1.0            # retain-term weight (upstream's alpha)
+    epochs: 5
+    micro_batch_size: 2
+    gradient_accumulation_steps: 8
+    learning_rate: 1.0e-5
+    weight_decay: 0.01
+    max_grad_norm: 1.0
+    optimizer: adamw
+    max_seq_length: 512
+    append_eos: true
+    system_prompt: null
+
+  # OpenUnlearning's SimNPO: reference-free NPO. The DPO ratio is replaced by the
+  # LENGTH-NORMALIZED NLL, so no frozen reference copy is needed -- ~2.3 GiB cheaper
+  # and faster than npo, while keeping NPO's saturating sigmoid (so it degrades
+  # gracefully where grad_ascent runs away).
+  #   L = gamma * -(2/beta)*logsigmoid(beta*(nll_per_token - delta)) + alpha*retain_nll
+  # Defaults are upstream's SimNPO.yaml and differ sharply from NPO's -- note
+  # beta 4.5 (not 0.1) and gamma 0.125 (not 1.0).
+  simnpo:
+    beta: 4.5
+    delta: 0.0
+    gamma: 0.125          # forget-term weight
+    alpha: 1.0            # retain-term weight
+    epochs: 5
+    micro_batch_size: 2
+    gradient_accumulation_steps: 8
+    learning_rate: 1.0e-5
+    weight_decay: 0.01
+    max_grad_norm: 1.0
+    optimizer: adamw
+    max_seq_length: 512
+    append_eos: true
+    system_prompt: null
+
+  retain_ft:
+    epochs: 2
+    micro_batch_size: 2
+    gradient_accumulation_steps: 8
+    learning_rate: 1.0e-5
+    weight_decay: 0.01
+    lr_schedule: linear
+    warmup_ratio: 0.0
+    max_grad_norm: 1.0
+    optimizer: adamw
+    max_seq_length: 512
+    append_eos: true
+    system_prompt: null
+    reshuffle_each_epoch: false
+
+# ----------------------------------------------------------------------------
+# Loss extraction on all 20 candidate authors (both signs).
+# ----------------------------------------------------------------------------
+scoring:
+  batch_size: 8
+  max_seq_length: 512
+  append_eos: true
+
+# ----------------------------------------------------------------------------
+# Attack (paper §5, Instantiation I). Fitted on calibration runs ONLY.
+# ----------------------------------------------------------------------------
+attack:
+  var_floor: 1.0e-4        # Gamma=20 gives only ~10 obs/condition; floor the variance
+  pool_variance: author    # null for per-QA variances; 'author' pools across 20 QA pairs
+  aggregate: sum           # 'sum' is the spec default; 'mean' is the ablation
+  # r must be EVEN: the auditor makes r/2 positive and r/2 negative guesses, so odd r
+  # is rejected outright (epsilon_bounds._validate; log_f_values assumes r even), and
+  # aggregate_audit.py raises rather than skipping it. So the grid is: the original m/5
+  # points, plus the 0.3m / 0.5m / 0.7m ones, plus the 5x and 15x points of the m=20
+  # grid wherever scaling keeps them even (m=40 -> 10, 30; m=400 -> 100, 300; m=100
+  # cannot, see below; at m=20 itself 5 and 15 are odd, so 6 and 14 stand in for them).
+  # Every earlier value is retained, so a re-aggregation is a strict superset of the
+  # previous sweep and each previously reported r stays directly comparable.
+  r_values: [4, 6, 8, 10, 12, 14, 16, 20]      # m=20; added 6, 10, 14
+  # Pin r here to freeze it explicitly. Left null, aggregate_audit.py selects it by
+  # leave-one-out over the CALIBRATION runs only (--select_r_from calibration) and
+  # records the choice in audit_summary.json under "r_selection".
+  r_frozen: null
+
+# ----------------------------------------------------------------------------
+# Epsilon lower bound.
+# ----------------------------------------------------------------------------
+epsilon:
+  zeta: 0.05               # confidence level (paper's ci_delta)
+  delta: 0.0               # paper's main test fixes delta = 0
+  theta_max: 50.0
+  statistic: mean          # headline statistic; median also reported
+  # zCDP (rho) and GDP (mu) audits of the same overlaps. Neither is halved.
+  gamma_max: 1.0e4         # cap on the Renyi order searched for the rho bound
+  conv_delta: 1.0e-3       # delta used ONLY to display rho/mu as an (eps, delta) pair
+
+# ----------------------------------------------------------------------------
+# Utility suite: evaluation runs only.
+# ----------------------------------------------------------------------------
+utility:
+  enabled: true
+  calibration_runs: false  # calibration runs need candidate losses only
+  compute_rouge: false     # requires generation; slow
+  limit: null              # cap rows per split for a quick check
+  reference_truth_ratios_path: null   # enables TOFU forget quality when provided
+  # Where the retain-only reference model lives. SHARED across configs on purpose.
+  # The reference is a function of D_r ALONE -- not of the candidate batching -- so
+  # every config pinning the same 180 retain authors can reuse one model. All four
+  # audit configs and forgetq5_pinned180 pin candidates to 180..199, hence
+  # D_r == retain90 for all of them, so ONE reference serves all five. The directory
+  # is named after the retain set rather than any one experiment, so the sharing is
+  # explicit rather than accidental.
+  # null falls back to <output_root>/reference (per-experiment, not shared).
+  reference_dir: runs/reference_retain90
+
+# ----------------------------------------------------------------------------
+# Weights & Biases. Entirely optional -- every failure degrades to a no-op, because
+# a 20-GPU-hour audit must not die because a metrics service is unreachable. The
+# authoritative outputs are always the JSON files under output_root.
+#
+# One wandb run per (audit run_id, method), grouped by experiment name + split hash,
+# with job_type = the method so methods can be compared directly.
+#
+# AUTH: if ~/.netrc may be unreadable (e.g. a network home directory),
+# scripts/run_audit.sh runs a preflight check so that fails fast rather than 20
+# minutes into the first fine-tune. Alternatives: export WANDB_API_KEY, or set
+# mode: offline and `wandb sync` the runs later.
+# ----------------------------------------------------------------------------
+wandb:
+  enabled: true
+  project: tofu-unlearning-audit
+  entity: null            # null -> your default entity
+  mode: online            # online | offline | disabled
+  group: null             # null -> "<experiment.name>-<split_hash[:8]>"
+  tags: []
+  dir: null               # null -> $WANDB_DIR
+
+# ----------------------------------------------------------------------------
+# Storage.
+# ----------------------------------------------------------------------------
+storage:
+  # keep_all | keep_trained | delete_after_scoring
+  #
+  # keep_all: keep the fine-tuned checkpoint AND every unlearned branch, so any
+  # metric invented later (ROUGE, a new probe, a different eval split) costs only a
+  # forward pass instead of re-running training + unlearning. That is exactly the
+  # bind we were in when forget quality turned out to need truth ratios the deleted
+  # models were the only way to produce.
+  #
+  # Cost: ~2.4 GiB per checkpoint. Per run = 1 trained + 6 method models = ~17 GiB,
+  # so ~500 GiB for a 30-run audit. Drop to keep_trained (~72 GiB per audit) if
+  # space gets tight -- re-deriving a method from trained/ costs only 26-433 s.
+  retention: keep_all
+  save_trained_checkpoint: true   # needed to branch into multiple methods
+  # Writes methods/<method>/model, which is already prune_checkpoints' target, so
+  # retention governs it. Until this existed, keep_all and keep_trained were
+  # indistinguishable: the unlearned weights were never written at all.
+  # Note `noop` returns the trained model unchanged, so its checkpoint duplicates
+  # trained/ (~2.4 GiB per run). Kept for uniformity -- under keep_all every method
+  # has a model/ directory.
+  save_unlearned_checkpoint: true
+

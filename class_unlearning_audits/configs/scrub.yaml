@@ -1,0 +1,63 @@
+# SCRUB -- Kurmanji, Triantafillou, Hayes & Ampatzoglou, "Towards Unbounded Machine
+# Unlearning", NeurIPS 2023 (arXiv:2302.09880).
+#
+# Unlearning settings are the official repo's large-scale CIFAR-10 *class* unlearning
+# configuration for ResNet (large_scale_unlearning.ipynb's hyperparameter cell, and
+# Table 3 of the paper) -- the closest published setting to this project's class-centric
+# CIFAR-100 forget split. Any key here can still be overridden on the command line, e.g.
+#
+#   python run_sweep.py --config configs/scrub.yaml --run-dir runs/scrub/my_sweep \
+#       --scrub-msteps 3
+#
+# See config.py for the full precedence chain and the YAML schema, and configs/scrub_r.yaml
+# for the same algorithm with the paper's rewinding step.
+
+unlearn_method: scrub
+
+# ---- Stage 1: forget sampling ----
+dataset: cifar100
+forget_prob: 0.5
+
+# ---- Stage 2: training. Identical to configs/delete.yaml and configs/badteacher.yaml on
+#      purpose: the trained model being unlearned is the same whichever method runs next,
+#      which is what makes the four methods' audit numbers comparable. ----
+batch_size: 128
+epochs: 200
+lr: 2.0e-2
+weight_decay: 5.0e-4
+optimizer: sgd
+momentum: 0.0
+lr_scheduler: cosine
+scheduler_gamma: 0.1
+
+# ---- Stage 3: unlearning ----
+unlearn_epochs: 3           # the paper's STEPS (args.sgda_epochs)
+unlearn_lr: 5.0e-4          # args.sgda_learning_rate
+unlearn_batch_size: 128     # retain-set (min-step) batch size
+scrub_forget_batch_size: 512  # forget-set (max-step) batch size -- tuned separately
+scrub_msteps: 2             # the paper's MAX-STEPS: epochs 1-2 get a max-step, epoch 3 does not
+scrub_alpha: 0.001          # weight on the min-step's KL-to-teacher term
+scrub_gamma: 0.99           # weight on the min-step's retain cross-entropy term
+scrub_kd_temperature: 4.0   # args.kd_T
+scrub_optim: sgd            # shared by min- and max-steps, as in the original
+scrub_momentum: 0.9
+scrub_weight_decay: 5.0e-4  # unlearning-stage weight decay, separate from training's
+scrub_lr_decay_epochs: 3,5,9
+scrub_lr_decay_rate: 0.1
+# Left off: the unlearning loop already reports forget error every epoch, and the extra
+# full-split evaluation passes cost a pass per split per epoch.
+eval_every_unlearn_epoch: false
+
+# ---- Seeding ----
+seed: 42
+
+sweep:                # read only by run_sweep.py
+  unlearn_seed_base: 1000
+  forget_seed_base: 2000
+  num_runs: 60
+  unlearn_checkpoint_every: 1   # -> every intermediate epoch (1, 2 of 3)
+  runs_per_gpu: 1
+
+single:               # read only by train_and_unlearn.py
+  out_dir: runs/scrub
+  unlearn_checkpoint_every: null
